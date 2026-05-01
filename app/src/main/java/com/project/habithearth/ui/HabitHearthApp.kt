@@ -6,6 +6,11 @@ import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -215,6 +220,50 @@ fun HabitHearthApp(modifier: Modifier = Modifier) {
                 navController = navController,
                 startDestination = AppDestination.Home.route,
                 modifier = Modifier.padding(navPadding),
+                enterTransition = {
+                    val toRoute = targetState.destination.route
+                    if (toRoute == AppDestination.Map.route) {
+                        fadeIn(animationSpec = tween(250))
+                    } else {
+                        slideInHorizontally(
+                            initialOffsetX = { fullWidth -> fullWidth / 4 },
+                            animationSpec = tween(240),
+                        ) + fadeIn(animationSpec = tween(180))
+                    }
+                },
+                exitTransition = {
+                    val fromRoute = initialState.destination.route
+                    if (fromRoute == AppDestination.Map.route) {
+                        fadeOut(animationSpec = tween(180))
+                    } else {
+                        slideOutHorizontally(
+                            targetOffsetX = { fullWidth -> -fullWidth / 4 },
+                            animationSpec = tween(200),
+                        ) + fadeOut(animationSpec = tween(140))
+                    }
+                },
+                popEnterTransition = {
+                    val toRoute = targetState.destination.route
+                    if (toRoute == AppDestination.Map.route) {
+                        fadeIn(animationSpec = tween(250))
+                    } else {
+                        slideInHorizontally(
+                            initialOffsetX = { fullWidth -> -fullWidth / 4 },
+                            animationSpec = tween(240),
+                        ) + fadeIn(animationSpec = tween(180))
+                    }
+                },
+                popExitTransition = {
+                    val fromRoute = initialState.destination.route
+                    if (fromRoute == AppDestination.Map.route) {
+                        fadeOut(animationSpec = tween(180))
+                    } else {
+                        slideOutHorizontally(
+                            targetOffsetX = { fullWidth -> fullWidth / 4 },
+                            animationSpec = tween(200),
+                        ) + fadeOut(animationSpec = tween(140))
+                    }
+                },
             ) {
                 composable(
                     route = BuildingDetailRoute,

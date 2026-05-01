@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -58,6 +60,8 @@ import com.project.habithearth.ui.tasks.TaskListViewModel
 import com.project.habithearth.ui.tasks.TaskListViewModelFactory
 import com.project.habithearth.ui.theme.HabitHearthTheme
 import com.project.habithearth.ui.theme.HearthBackground
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 // configuaration: constants for the interactive map behavior
 private val MapMinScale = 1f // minimum zoom (100%)
@@ -75,6 +79,11 @@ private val LockedBadgeSize = 28.dp
 private val LockedIconSize = 18.dp
 private val PendingBadgeSize = 14.dp
 private const val CottageBuildingId = "cottage"
+
+private data class LoadedMapAssets(
+    val background: ImageBitmap?,
+    val markerByPath: Map<String, ImageBitmap?>,
+)
 
 @Composable
 fun MapScreen(
@@ -126,6 +135,34 @@ fun MapScreen(
     }
 
     val buildings = remember { defaultVillageBuildings() }
+    val markerPaths = remember(buildings) {
+        buildings.mapIndexed { index, building ->
+            markerAssetPathForBuilding(building.id, index)
+        }.distinct()
+    }
+    val loadedAssets by produceState<LoadedMapAssets?>(
+        initialValue = null,
+        key1 = markerPaths,
+    ) {
+        value = withContext(Dispatchers.IO) {
+            val background = decodeMapBackgroundBitmap(
+                context = app,
+                assetPath = MapBackgroundAssetPath,
+                maxEdgePx = MapBackgroundMaxEdgePx,
+            )
+            val markerByPath = markerPaths.associateWith { path ->
+                decodeMapMarkerBitmap(
+                    context = app,
+                    assetPath = path,
+                    maxEdgePx = MapBuildingMaxEdgePx,
+                )
+            }
+            LoadedMapAssets(
+                background = background,
+                markerByPath = markerByPath,
+            )
+        }
+    }
 
     // unlock dialog: logic for the do you want to buy this popup
     var pendingUnlock by remember { mutableStateOf<VillageBuilding?>(null) }
@@ -164,6 +201,12 @@ fun MapScreen(
         )
     }
 
+    if (loadedAssets == null) {
+        MapLoadingScreen(modifier = modifier)
+        return
+    }
+    val mapAssets = loadedAssets ?: return
+
     // the map container
     Box(
         modifier
@@ -187,13 +230,16 @@ fun MapScreen(
             BoxWithConstraints(
                 Modifier
                     .size(1400.dp, 980.dp).align(Alignment.TopCenter),) {
-                MapBaseBackground(Modifier.fillMaxSize()) // the giant ground image
+                MapBaseBackground(
+                    imageBitmap = mapAssets.background,
+                    modifier = Modifier.fillMaxSize(),
+                ) // the giant ground image
                 buildings.forEachIndexed { index, building ->
                     val assetPath = markerAssetPathForBuilding(building.id, index)
 
                     BuildingMarker(
                         building = building,
-                        assetPath = assetPath,
+                        markerBitmap = mapAssets.markerByPath[assetPath],
                         locked = building.id !in ownedBuildingIds,
                         pendingCount = pendingByBuilding[building.id] ?: 0,
                         modifier = Modifier.offset(
@@ -224,11 +270,10 @@ fun MapScreen(
 }
 
 @Composable
-private fun MapBaseBackground(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val imageBitmap = remember(MapBackgroundAssetPath) {
-        decodeMapBackgroundBitmap(context, MapBackgroundAssetPath, MapBackgroundMaxEdgePx)
-    }
+private fun MapBaseBackground(
+    imageBitmap: ImageBitmap?,
+    modifier: Modifier = Modifier,
+) {
     if (imageBitmap != null) {
         Image(
             bitmap = imageBitmap,
@@ -303,31 +348,26 @@ private fun sampleSizeForMaxEdge(width: Int, height: Int, maxEdgePx: Int): Int {
 @Composable
 private fun BuildingMarker(
     building: VillageBuilding,
-    assetPath: String,
+    markerBitmap: ImageBitmap?,
     locked: Boolean,
     pendingCount: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    val buildingBitmap = remember(assetPath) {
-        decodeMapMarkerBitmap(context, assetPath, MapBuildingMaxEdgePx)
-    }
-
     Box(
         modifier = modifier
             .size(BuildingMarkerWidth, BuildingMarkerHeight)
             .clickable(onClick = onClick, onClickLabel = building.name),
         contentAlignment = Alignment.Center,
     ) {
-        if (buildingBitmap != null) {
+        if (markerBitmap != null) {
             val colorFilter = if (locked) {
                 ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
             } else {
                 null
             }
             Image(
-                bitmap = buildingBitmap,
+                bitmap = markerBitmap,
                 contentDescription = building.name,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit,
@@ -372,6 +412,26 @@ private fun BuildingMarker(
                     color = MaterialTheme.colorScheme.onErrorContainer,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun MapLoadingScreen(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surfaceContainerLow),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+            Text(
+                text = "Loading map...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 72.dp),
+            )
         }
     }
 }
