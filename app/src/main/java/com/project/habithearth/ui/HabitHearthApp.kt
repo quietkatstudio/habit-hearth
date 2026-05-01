@@ -51,6 +51,7 @@ import com.project.habithearth.ui.navigation.TopChromeWithMenu
 import com.project.habithearth.ui.navigation.TopResourceBar
 import com.project.habithearth.notifications.TaskReminderScheduler
 import com.project.habithearth.ui.profile.ProfileScreen
+import com.project.habithearth.ui.shop.ShopScreen
 import com.project.habithearth.ui.state.GameStateViewModel
 import com.project.habithearth.ui.state.GameStateViewModelFactory
 import com.project.habithearth.ui.story.StoryScreen
@@ -60,6 +61,8 @@ private const val TaskMakerRoute = "task_maker"
 private const val TaskMakerNewInBuildingRoute = "task_maker/building/{buildingId}"
 private const val TaskMakerEditRoute = "task_maker/{taskId}"
 private const val BuildingDetailRoute = "building_detail/{buildingId}"
+private const val ShopRoute = "shop"
+private const val ShopBuildingId = "workshop"
 
 @Composable
 fun HabitHearthApp(modifier: Modifier = Modifier) {
@@ -291,10 +294,26 @@ fun HabitHearthApp(modifier: Modifier = Modifier) {
                         ownedBuildingIds = game.ownedBuildingIds,
                         gameUiState = game,
                         onOpenBuilding = { building ->
-                            navController.navigate("building_detail/${building.id}")
+                            if (building.id == ShopBuildingId) {
+                                navController.navigate(ShopRoute)
+                            } else {
+                                navController.navigate("building_detail/${building.id}")
+                            }
                         },
                         onPurchaseBuilding = { buildingId ->
                             gameVm.tryPurchaseBuilding(buildingId)
+                        },
+                    )
+                }
+                composable(ShopRoute) {
+                    ShopScreen(
+                        gameUiState = game,
+                        onBack = { navController.popBackStack() },
+                        onHireWorker = { buildingId, workerCost ->
+                            gameVm.tryHireWorkerForBuilding(buildingId, workerCost)
+                        },
+                        onBuyItem = { itemId, costCoins ->
+                            gameVm.tryBuyShopItem(itemId, costCoins)
                         },
                     )
                 }

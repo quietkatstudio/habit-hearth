@@ -204,8 +204,8 @@ fun defaultVillageBuildings(): List<VillageBuilding> = listOf(
 
     VillageBuilding(
         id = "workshop",
-        name = "Tinker Workshop",
-        story = "Gears, glue, and half-finished projects. The motto carved over the door: good enough today beats perfect never.",
+        name = "Village Shop",
+        story = "Shelves of tools, bundles, and contracts for extra hands. Spend coins here to stock up and hire workers for your village.",
 
         xFraction = 0.687f,
         yFraction = 0.44f,

@@ -221,7 +221,11 @@ fun BuildingDetailScreen(
                                     onCompletedChange = { checked ->
                                         // update the habit database and trigger game rewards (coins/gems)
                                         taskListVm.setCompleted(task.id, checked) { before, delta ->
-                                            gameStateViewModel.applyRewardDelta(before.category, delta,)
+                                            gameStateViewModel.applyRewardDelta(
+                                                category = before.category,
+                                                delta = delta,
+                                                buildingId = before.buildingId,
+                                            )
                                         }
                                     },
                                     onOpenEdit = { onEditTask(task.id) },

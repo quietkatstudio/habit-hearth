@@ -87,7 +87,11 @@ fun HomeScreen(
                             // GameStateViewModel until ProgressRepository
                             // lands (PLAN.md second milestone).
                             taskListVm.setCompleted(task.id, checked) { before, delta ->
-                                gameStateViewModel.applyRewardDelta(before.category, delta)
+                                gameStateViewModel.applyRewardDelta(
+                                    category = before.category,
+                                    delta = delta,
+                                    buildingId = before.buildingId,
+                                )
                             }
                         },
                         onOpenEdit = { onEditTask(task.id) },

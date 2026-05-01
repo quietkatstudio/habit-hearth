@@ -26,6 +26,8 @@ data class GameUiState(
     val spiritGems: Int = 0,
     val coins: Int = 0,
     val totalXp: Int = 0,
+    val workersByBuildingId: Map<String, Int> = emptyMap(),
+    val purchasedItemCounts: Map<String, Int> = emptyMap(),
     // Starter hubs (library/cottage/spa/guild/greenhouse) own at fresh-install
     // time so the home tile of the map isn't a wall of locks. Saved games
     // re-merge MainHubBuildingIds in loadGameState when the persisted set is
@@ -74,10 +76,12 @@ class GameStateViewModel(
      * Pass a positive [delta] when crediting a fresh completion, negative when
      * un-completing or re-categorizing a completed task.
      */
-    fun applyRewardDelta(category: TaskCategory, delta: Int) {
+    fun applyRewardDelta(category: TaskCategory, delta: Int, buildingId: String? = null) {
         if (delta == 0) return
+        val workersAtBuilding = buildingId?.let { _uiState.value.workersByBuildingId[it] ?: 0 } ?: 0
+        val effectiveDelta = if (delta > 0) delta + workersAtBuilding else delta
         _uiState.update { state ->
-            val withGems = state.withResourceDelta(category, delta)
+            val withGems = state.withResourceDelta(category, effectiveDelta)
             // XP is monotonic: a fresh completion grants flat XP_PER_TASK,
             // but uncompleting (delta < 0) does NOT refund XP. Keeps story
             // gates from yo-yoing as users toggle tasks, and matches the
@@ -173,6 +177,45 @@ class GameStateViewModel(
         }
         persist()
         return true
+    }
+
+    fun tryHireWorkerForBuilding(buildingId: String, workerCostCoins: Int): Boolean {
+        if (buildingId.isBlank() || workerCostCoins <= 0) return false
+        val building = villageBuildingById(buildingId) ?: return false
+        val current = _uiState.value
+        if (building.id !in current.ownedBuildingIds) return false
+        if (current.coins < workerCostCoins) return false
+        var hired = false
+        _uiState.update { s ->
+            if (s.coins < workerCostCoins) return@update s
+            if (building.id !in s.ownedBuildingIds) return@update s
+            val currentWorkers = s.workersByBuildingId[building.id] ?: 0
+            hired = true
+            s.copy(
+                coins = s.coins - workerCostCoins,
+                workersByBuildingId = s.workersByBuildingId + (building.id to (currentWorkers + 1)),
+            )
+        }
+        if (hired) persist()
+        return hired
+    }
+
+    fun tryBuyShopItem(itemId: String, costCoins: Int): Boolean {
+        if (itemId.isBlank() || costCoins <= 0) return false
+        val current = _uiState.value
+        if (current.coins < costCoins) return false
+        var bought = false
+        _uiState.update { s ->
+            if (s.coins < costCoins) return@update s
+            val nextCount = (s.purchasedItemCounts[itemId] ?: 0) + 1
+            bought = true
+            s.copy(
+                coins = s.coins - costCoins,
+                purchasedItemCounts = s.purchasedItemCounts + (itemId to nextCount),
+            )
+        }
+        if (bought) persist()
+        return bought
     }
 }
 

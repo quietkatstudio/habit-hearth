@@ -345,10 +345,14 @@ fun TaskMakerScreen(
                                     before.category != targetCategory
                                 ) {
                                     gameStateViewModel.applyRewardDelta(
-                                        before.category, -before.rewardAmount,
+                                        category = before.category,
+                                        delta = -before.rewardAmount,
+                                        buildingId = before.buildingId,
                                     )
                                     gameStateViewModel.applyRewardDelta(
-                                        targetCategory, before.rewardAmount,
+                                        category = targetCategory,
+                                        delta = before.rewardAmount,
+                                        buildingId = selectedBuildingId ?: CottageBuildingId,
                                     )
                                 }
                                 onBack()
