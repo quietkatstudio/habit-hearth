@@ -2,33 +2,29 @@ package com.project.habithearth.ui.map
 
 import com.project.habithearth.model.TaskCategory
 
+// data model: represents a single location on the map
 data class VillageBuilding(
-    val id: String,
-    val name: String,
-    /** Story snippet shown when the building is opened. */
-    val story: String,
-    /**
-     * Horizontal position on the map **content** (the fixed `1400.dp × 980.dp` layer in [MapScreen]), as a fraction **0f…1f**:
-     * `0f` = left edge, `1f` = right edge. The marker is **centered** on this x.
-     */
-    val xFraction: Float,
-    /**
-     * Vertical position on the same map layer, **0f…1f**:
-     * `0f` = **top**, `1f` = **bottom** (Compose/UI coordinates: y grows downward). The marker is **centered** on this y.
-     */
-    val yFraction: Float,
-    val shortLabel: String = name,
-    /** Habit category this building represents in the story. */
-    val category: TaskCategory,
+    val id: String, // unique identifier used for logic and asset lookup
+    val name: String, // the full name (The Healing Spa)
+    val story: String, // descriptive text shown in the building detail screen
+
+    // coordinates:
+    //      these use a fraction 0.0 to 1.0 rather than fixed pixels
+    // allows the map to scale to any screen size without buildings moving
+    val xFraction: Float, // 0.5 is exactly the horizontal middle
+    val yFraction: Float, // 0.5 is exactly the vertical middle
+
+
+    val shortLabel: String = name, // smaller name for ui labels
+    val category: TaskCategory, // links the buildings to a specific habit type
 )
 
+// helper: finds a building in the list below by its ID
 fun villageBuildingById(id: String): VillageBuilding? =
     defaultVillageBuildings().find { it.id == id }
 
-/**
- * Hub buildings unlocked at the start of a new game (home + wisdom, strength, vitality, spirit anchors).
- * Also used for default map zoom framing.
- */
+// set: identifies the 5 core buildings the user starts with
+// these are used by the MapViewModel to calculate the initial camera zoom
 val MainHubBuildingIds: Set<String> = setOf(
     "library",
     "cottage",
@@ -37,25 +33,17 @@ val MainHubBuildingIds: Set<String> = setOf(
     "greenhouse",
 )
 
-/**
- * Hex-style grid on the map (same spacing as your tuned rows):
- * - **Wide row** (3 sites): `x` = `0.326`, `0.5`, `0.687`
- * - **Narrow row** (2 sites, staggered): `x` = `0.4`, `0.6`
- * - **Row step** vertically: `0.09` between `y` levels (e.g. `0.44 → 0.53 → 0.62`)
- */
+
 fun defaultVillageBuildings(): List<VillageBuilding> = listOf(
-    // --- y = 0.08 wide row (outer columns; center hex empty on art) ---
 
-    //main 5 buildings
-
+// --------the main 5 ---------------------------------------
     VillageBuilding(
         id = "cottage",
         name = "Your Cottage",
         story = "Smoke curls from the chimney. This is home base—tasks pinned by the door, a chair by the fire for when the day is done.",
-//        xFraction = 0.5f,
-//        yFraction = 0.44f,
-        xFraction = 0.513f,
-        yFraction = 0.62f,
+
+        xFraction = 0.513f, // near center
+        yFraction = 0.62f, // lower middle
         shortLabel = "Home",
         category = TaskCategory.UNSORTED,
     ),
@@ -63,8 +51,7 @@ fun defaultVillageBuildings(): List<VillageBuilding> = listOf(
         id = "library",
         name = "Quiet Stacks",
         story = "Dust motes float in sunbeams. Here you sketch tomorrow’s routines in the margins of borrowed books. No one rushes you.",
-//        xFraction = 0.326f,
-//        yFraction = 0.44f,
+
         xFraction = 0.326f,
         yFraction = 0.62f,
         shortLabel = "Library",
@@ -75,8 +62,7 @@ fun defaultVillageBuildings(): List<VillageBuilding> = listOf(
         name = "The Hearth Bakery",
         story = "Locals swap tales of streaks kept and habits broken. The keeper nods when you pass—your name is already on the board for tonight’s round.",
 
-//        xFraction = 0.5f,
-//        yFraction = 0.44f,
+
         xFraction = 0.6f,
         yFraction = 0.53f,
         shortLabel = "Tavern",
@@ -95,8 +81,7 @@ fun defaultVillageBuildings(): List<VillageBuilding> = listOf(
         id = "spa",
         name = "The Healing Spa",
         story = "They say wishes dropped here return as reminders at just the right hour. You hear water far below—steady, patient.",
-//        xFraction = 0.687f,
-//        yFraction = 0.44f,
+
         xFraction = 0.687f,
         yFraction = 0.62f,
         shortLabel = "Well",
@@ -104,15 +89,15 @@ fun defaultVillageBuildings(): List<VillageBuilding> = listOf(
     ),
 
 
-    //end of main buildings
+    //------------- exploration buildings, locked at start ---------------
 
-
+    // northern buildings (y = 0.08 to 0.17)
     VillageBuilding(
         id = "lookout_post",
         name = "North Lookout",
         story = "A crooked ladder and a bell that only rings when someone finishes what they started. The view reminds you how far the path goes.",
-        xFraction = 0.326f,
-        yFraction = 0.08f,
+        xFraction = 0.326f, // left side
+        yFraction = 0.08f, // very top of map
         shortLabel = "Lookout",
         category = TaskCategory.STRENGTH,
     ),
@@ -126,7 +111,6 @@ fun defaultVillageBuildings(): List<VillageBuilding> = listOf(
         shortLabel = "Apiary",
         category = TaskCategory.VITALITY,
     ),
-    // --- y = 0.17 narrow ---
     VillageBuilding(
         id = "windmill",
         name = "Old Windmill",
@@ -145,7 +129,8 @@ fun defaultVillageBuildings(): List<VillageBuilding> = listOf(
         shortLabel = "Shrine",
         category = TaskCategory.SPIRIT,
     ),
-    // --- y = 0.26 wide ---
+
+    // mid north buildings ( y= 0.26 to 0.35)
     VillageBuilding(
         id = "fishery",
         name = "Cold Dock",
@@ -173,7 +158,7 @@ fun defaultVillageBuildings(): List<VillageBuilding> = listOf(
         shortLabel = "Stables",
         category = TaskCategory.STRENGTH,
     ),
-    // --- y = 0.35 narrow ---
+
     VillageBuilding(
         id = "bakery",
         name = "Dawn Oven",
@@ -192,30 +177,25 @@ fun defaultVillageBuildings(): List<VillageBuilding> = listOf(
         shortLabel = "Forge",
         category = TaskCategory.STRENGTH,
     ),
-    // --- y = 0.44 wide (original row) ---
 
-
-
-    // --- y = 0.53 narrow (original row) ---
+    // mid south buildings (y = 0.44 to 0.53)
 
     VillageBuilding(
         id = "guild2",
         name = "Habit Annex",
         story = "Spillover from the main hall—quiet desks for planning the week. Someone always leaves a spare quill.",
-//        xFraction = 0.6f,
-//        yFraction = 0.53f,
+
         xFraction = 0.5f,
         yFraction = 0.44f,
         shortLabel = "Annex",
         category = TaskCategory.STRENGTH,
     ),
-    // --- y = 0.62 wide (tavern center + hex wings) ---
+
     VillageBuilding(
         id = "market_stall",
         name = "Ribbon Market",
         story = "Stalls trade ribbons for completed chores—colors by category. Gaudy, cheerful, impossible to ignore on a good day.",
-//        xFraction = 0.326f,
-//        yFraction = 0.62f,
+
         xFraction = 0.326f,
         yFraction = 0.44f,
         shortLabel = "Market",
@@ -226,14 +206,14 @@ fun defaultVillageBuildings(): List<VillageBuilding> = listOf(
         id = "workshop",
         name = "Tinker Workshop",
         story = "Gears, glue, and half-finished projects. The motto carved over the door: good enough today beats perfect never.",
-//        xFraction = 0.687f,
-//        yFraction = 0.62f,
+
         xFraction = 0.687f,
         yFraction = 0.44f,
         shortLabel = "Shop",
         category = TaskCategory.WISDOM,
     ),
-    // --- y = 0.71 narrow ---
+
+    // southern buildings (y = 0.71 to 0.80)
     VillageBuilding(
         id = "vineyard",
         name = "Slope Vineyard",
@@ -252,7 +232,7 @@ fun defaultVillageBuildings(): List<VillageBuilding> = listOf(
         shortLabel = "Gate",
         category = TaskCategory.SPIRIT,
     ),
-    // --- y = 0.80 wide ---
+
     VillageBuilding(
         id = "orchard",
         name = "Late Orchard",

@@ -1,21 +1,18 @@
 package com.project.habithearth.ui.map
 
-/**
- * Asset paths under `app/src/main/assets/` for map marker images.
- *
- * Markers are chosen by the building's `id` (from [VillageBuilding]).
- *
- * The "image folder naming/category grouping" is just organization — this code only cares about
- * `buildingId` and the explicit image paths you configure below.
- *
- * Important: Android asset paths are case-sensitive on device. Update these strings to match
- * your files exactly (including `.PNG` vs `.png`).
- */
+// this files acts as the switchboard for the maps graphics
 
+// a single data wrapper to hold the file path string
+
+// using a data class makes it easier to add more properties like shadow or icon later
 private data class BuildingMarkerArt(val image: String)
 
+// the registry:
+//      this map links a unique string ID (the buildingID) to a specific image file path
+
+// these paths refer to files inside the app/src/main/assets/
 private val BuildingMarkerArtById: Map<String, BuildingMarkerArt> = mapOf(
-    // Replace these examples with your actual per-building assets.
+    // format: Building_ID to BuildingMarkerArt(image = "path/to/file/.png")
     "library" to BuildingMarkerArt(
         image = "images/buildings/wisdom/observatory.PNG",
     ),
@@ -33,11 +30,14 @@ private val BuildingMarkerArtById: Map<String, BuildingMarkerArt> = mapOf(
     ),
 )
 
+// fallback: if the building ID is requessted that isn't in the map above,
+// the app uses a default image to prevent a crash
 private val DefaultBuildingMarkerArt = BuildingMarkerArt(
     image = "images/buildings/wisdom/observatory.PNG",
 )
 
-/** `buildingIndex` is ignored; kept to avoid changing call sites. */
+//the getter function
+// use this function to find out which image to display
 fun markerAssetPathForBuilding(buildingId: String, buildingIndex: Int): String {
     return (BuildingMarkerArtById[buildingId] ?: DefaultBuildingMarkerArt).image
 }

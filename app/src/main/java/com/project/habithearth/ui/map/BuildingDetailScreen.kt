@@ -55,24 +55,27 @@ import com.project.habithearth.ui.tasks.TaskListViewModelFactory
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BuildingDetailScreen(
-    buildingId: String,
-    onBack: () -> Unit,
-    onAddHabitInBuilding: (String) -> Unit,
-    onEditTask: (String) -> Unit,
-    gameStateViewModel: GameStateViewModel,
+    buildingId: String, // unique ID of building to display
+    onBack: () -> Unit, // navigation callback for the back button
+    onAddHabitInBuilding: (String) -> Unit, // navigation to habit creation screen
+    onEditTask: (String) -> Unit, // navigation to habit editor
+    gameStateViewModel: GameStateViewModel, // global state for gold/gems/unlocked buildings
     modifier: Modifier = Modifier,
 ) {
     val app = LocalContext.current.applicationContext as HabitHearthApplication
+
+    // initializing the task viewmodel using a custom factory to inject the database repository
     val taskListVm: TaskListViewModel = viewModel(
         factory = TaskListViewModelFactory(app.taskRepository),
     )
-    // tasksForBuilding is a cold flow keyed by buildingId; remember it so we
-    // don't allocate a new flow on every recomposition.
+
+    // state: get the habits linked specifically to this building
     val tasksFlow = remember(buildingId) { taskListVm.tasksForBuilding(buildingId) }
     val tasksInBuilding by tasksFlow.collectAsState(initial = emptyList())
 
+    // state: check if the player actually owns this building
     val game by gameStateViewModel.uiState.collectAsState()
-    val building = villageBuildingById(buildingId)
+    val building = villageBuildingById(buildingId)  // helper to get static building metadata
     val owned = buildingId in game.ownedBuildingIds
     val scrollState = rememberScrollState()
 
@@ -97,6 +100,7 @@ fun BuildingDetailScreen(
             )
         },
     ) { innerPadding ->
+        // error handling: if the ID provided does not exist in our data
         if (building == null) {
             Column(
                 modifier = Modifier
@@ -125,6 +129,8 @@ fun BuildingDetailScreen(
                 .padding(horizontal = 16.dp),
         ) {
             val context = LocalContext.current
+
+            // asset loading: fetch the building image from the andriod assets folder
             val headerAssetPath = remember(buildingId) {
                 markerAssetPathForBuilding(buildingId, 0)
             }
@@ -137,6 +143,8 @@ fun BuildingDetailScreen(
             }
 
             if (headerBitmap != null) {
+                // visual feedback: if the building is locked,
+                // applies a grayscale filter
                 val lockedFilter = if (!owned) {
                     ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
                 } else {
@@ -156,7 +164,9 @@ fun BuildingDetailScreen(
             }
             Spacer(modifier = Modifier.height(8.dp))
 
+            // ui logic: toggle between shop view and habit list view
             if (!owned) {
+                // locked view
                 val cost = building.unlockCost()
                 val canAfford = game.resources.canAfford(cost)
                 Text(
@@ -173,6 +183,7 @@ fun BuildingDetailScreen(
                 }
                 Spacer(modifier = Modifier.weight(1f))
             } else {
+                // unlocked view
                 Text(
                     text = building.story,
                     style = MaterialTheme.typography.bodyMedium,
@@ -208,17 +219,9 @@ fun BuildingDetailScreen(
                                 HabitTaskRowCard(
                                     task = task,
                                     onCompletedChange = { checked ->
-                                        // Persist the flip via the
-                                        // DataStore-backed TaskListViewModel
-                                        // and route the gem/coin delta to
-                                        // the legacy GameStateViewModel only
-                                        // on a real transition. See HomeScreen
-                                        // for the equivalent path.
+                                        // update the habit database and trigger game rewards (coins/gems)
                                         taskListVm.setCompleted(task.id, checked) { before, delta ->
-                                            gameStateViewModel.applyRewardDelta(
-                                                before.category,
-                                                delta,
-                                            )
+                                            gameStateViewModel.applyRewardDelta(before.category, delta,)
                                         }
                                     },
                                     onOpenEdit = { onEditTask(task.id) },
@@ -227,6 +230,8 @@ fun BuildingDetailScreen(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                     }
+
+                    // custom scrollbar component to help users navigate the habit list
                     VerticalScrollIndicator(
                         scrollState = scrollState,
                         modifier = Modifier
@@ -249,17 +254,24 @@ fun BuildingDetailScreen(
     }
 }
 
+// optimized image loading:
+//      reads an image from assets and scales it down to maxEdgePx to prevent
+//      outOfMemory errors on high resolution graphics
 private fun decodeBuildingMarkerBitmap(
     context: Context,
     assetPath: String,
     maxEdgePx: Int,
 ): ImageBitmap? {
     return runCatching {
+        // step 1: read the image dimensions (fast, low memory)
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         context.assets.open(assetPath).use { BitmapFactory.decodeStream(it, null, bounds) }
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@runCatching null
 
+        // step 2: calculate how much we need to shrink it
         val sample = sampleSizeForMaxEdge(bounds.outWidth, bounds.outHeight, maxEdgePx)
+
+        // step 3: decode the actual image with the calculated scale (inSampleSize)
         val decode = BitmapFactory.Options().apply {
             inSampleSize = sample
             inScaled = false
@@ -270,6 +282,8 @@ private fun decodeBuildingMarkerBitmap(
     }.getOrNull()
 }
 
+// calculated a power of two sample size for bitmapfactory
+// if the image is 1000px and max is 256px, it returns 4 (decoding every 4th pixel)
 private fun sampleSizeForMaxEdge(width: Int, height: Int, maxEdgePx: Int): Int {
     val longest = maxOf(width, height)
     if (longest <= maxEdgePx) return 1
@@ -280,19 +294,3 @@ private fun sampleSizeForMaxEdge(width: Int, height: Int, maxEdgePx: Int): Int {
     return sample
 }
 
-//@Preview(showBackground = true, showSystemUi = true)
-//@Composable
-//private fun BuildingDetailScreenPreview() {
-//    val context = LocalContext.current
-//    val repo = remember { UserProgressRepository(context.applicationContext) }
-//    val gameVm: GameStateViewModel = viewModel(factory = GameStateViewModelFactory(repo))
-//    HabitHearthTheme {
-//        BuildingDetailScreen(
-//            buildingId = "cottage",
-//            onBack = {},
-//            onAddHabitInBuilding = {},
-//            onEditTask = {},
-//            gameStateViewModel = gameVm,
-//        )
-//    }
-//}

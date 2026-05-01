@@ -59,19 +59,16 @@ import com.project.habithearth.ui.tasks.TaskListViewModelFactory
 import com.project.habithearth.ui.theme.HabitHearthTheme
 import com.project.habithearth.ui.theme.HearthBackground
 
-private val MapMinScale = 1f
-private val MapMaxScale = 4f
+// configuaration: constants for the interactive map behavior
+private val MapMinScale = 1f // minimum zoom (100%)
+private val MapMaxScale = 4f // maximum zoom (400%)
+private const val MapBackgroundAssetPath = "images/background_image.png" // memory safety: do not load images bigger than 2k px
 
-/** Asset path under `app/src/main/assets/`. */
-private const val MapBackgroundAssetPath = "images/background_image.png"
 
-/**
- * Cap decoded size so large map PNGs do not OOM or exceed GPU max texture size when drawn.
- */
 private const val MapBackgroundMaxEdgePx = 2048
 private const val MapBuildingMaxEdgePx = 384
 
-/** Sized to sit inside one hex cell on the map art; centered on [VillageBuilding] fractions. */
+
 private val BuildingMarkerWidth = 50.dp
 private val BuildingMarkerHeight = 56.dp
 private val LockedBadgeSize = 28.dp
@@ -81,23 +78,28 @@ private const val CottageBuildingId = "cottage"
 
 @Composable
 fun MapScreen(
-    ownedBuildingIds: Set<String>,
-    gameUiState: GameUiState,
+    ownedBuildingIds: Set<String>, // list of IDs the player has already bought
+    gameUiState: GameUiState, // current gold/gems counts
     onOpenBuilding: (VillageBuilding) -> Unit,
     onPurchaseBuilding: (String) -> Boolean,
     modifier: Modifier = Modifier,
     mapViewModel: MapViewModel = viewModel(),
 ) {
+    // lock orientation: game maps are hard to navigate if the screen flips
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
 
+    // viewport state: manager where the camera is looking and how zoomed in it is
     val viewport by mapViewModel.viewportState.collectAsState()
     val density = LocalDensity.current
+
+    // autofocus the camera on the main building when the screen first loads
     LaunchedEffect(Unit) {
         mapViewModel.seedInitialViewportIfDefault(
             MapViewModel.initialViewportForMainBuildings(density),
         )
     }
 
+    // gesture handling: listen for multitouch (pinch and pan) and update the viewmodel
     val transformableState = rememberTransformableState { zoomChange, panChange, _ ->
         val nextScale = (viewport.scale * zoomChange).coerceIn(MapMinScale, MapMaxScale)
         val nextPan = viewport.pan + panChange
@@ -107,11 +109,13 @@ fun MapScreen(
         )
     }
 
+    // task notifications: checks how many incomplete habits are in each building
     val app = LocalContext.current.applicationContext as HabitHearthApplication
     val taskListVm: TaskListViewModel = viewModel(
-        factory = TaskListViewModelFactory(app.taskRepository),
-    )
+        factory = TaskListViewModelFactory(app.taskRepository),)
     val tasks by taskListVm.tasks.collectAsState()
+
+    // creates a map (Building(D -> Number of pending tasks) to show red notification dots
     val pendingByBuilding = remember(tasks) {
         tasks
             .asSequence()
@@ -122,6 +126,8 @@ fun MapScreen(
     }
 
     val buildings = remember { defaultVillageBuildings() }
+
+    // unlock dialog: logic for the do you want to buy this popup
     var pendingUnlock by remember { mutableStateOf<VillageBuilding?>(null) }
 
     pendingUnlock?.let { building ->
@@ -130,6 +136,7 @@ fun MapScreen(
         AlertDialog(
             onDismissRequest = { pendingUnlock = null },
             title = { Text(building.name) },
+            // explains cost and if play can afford it
             text = {
                 Text(
                     text = "Unlock this building for ${cost.displayLabel()}.\n\nYou currently " +
@@ -157,6 +164,7 @@ fun MapScreen(
         )
     }
 
+    // the map container
     Box(
         modifier
             .fillMaxSize()
@@ -166,6 +174,7 @@ fun MapScreen(
         Box(
             Modifier
                 .fillMaxSize()
+                // this layer applies the zoom and pan movements
                 .graphicsLayer {
                     scaleX = viewport.scale
                     scaleY = viewport.scale
@@ -174,15 +183,14 @@ fun MapScreen(
                 }
                 .transformable(transformableState),
         ) {
-            // Map layer: fixed size; building xFraction/yFraction are 0…1 across this box (see VillageBuilding KDoc).
+            // the actual map canvas
             BoxWithConstraints(
                 Modifier
-                    .size(1400.dp, 980.dp)
-                    .align(Alignment.TopCenter),
-            ) {
-                MapBaseBackground(Modifier.fillMaxSize())
+                    .size(1400.dp, 980.dp).align(Alignment.TopCenter),) {
+                MapBaseBackground(Modifier.fillMaxSize()) // the giant ground image
                 buildings.forEachIndexed { index, building ->
                     val assetPath = markerAssetPathForBuilding(building.id, index)
+
                     BuildingMarker(
                         building = building,
                         assetPath = assetPath,
@@ -237,9 +245,6 @@ private fun MapBaseBackground(modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * Decodes an asset PNG with [BitmapFactory.Options.inSampleSize] so the longer side is at most [maxEdgePx].
- */
 private fun decodeMapBackgroundBitmap(
     context: Context,
     assetPath: String,
@@ -262,7 +267,7 @@ private fun decodeMapBackgroundBitmap(
     }.getOrNull()
 }
 
-/** Map building markers — edit paths in [MapBuildingAssets]. */
+
 private fun decodeMapMarkerBitmap(
     context: Context,
     assetPath: String,
@@ -371,13 +376,4 @@ private fun BuildingMarker(
     }
 }
 
-//@Preview(showBackground = true, showSystemUi = true)
-//@Composable
-//private fun MapScreenPreview() {
-//    HabitHearthTheme {
-//        MapScreen(
-//            onOpenBuilding = {},
-//            mapViewModel = MapViewModel(SavedStateHandle()),
-//        )
-//    }
-//}
+
